@@ -11,6 +11,7 @@ dist/
 data/
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
 
 # Test coverage
