@@ -1,0 +1,375 @@
+================================================================================
+BuildChain REST API — Complete Endpoint Reference
+================================================================================
+
+Base URL: http://localhost:3000
+API Version: 1.0.0
+Authentication: X-API-Key header (required for /v1/ endpoints)
+
+================================================================================
+HEALTH & STATUS (No Auth Required)
+================================================================================
+
+GET /health
+  Description: Check API health and XRPL connection
+  Auth: None
+  Response: { success, data: { status, network, connected, timestamp } }
+  Example:
+    curl http://localhost:3000/health
+
+================================================================================
+REGISTRY & STATS (Auth Required)
+================================================================================
+
+GET /v1/registry/summary
+  Description: Get registry statistics (total escrows, by status, etc.)
+  Auth: X-API-Key header
+  Response: { success, data: { totalEscrows, totalProjects, byStatus, totalValueXrp } }
+  Example:
+    curl -H "X-API-Key: your-api-key" http://localhost:3000/v1/registry/summary
+
+================================================================================
+ESCROW OPERATIONS (Auth Required)
+================================================================================
+
+POST /v1/escrow
+  Description: Create a new escrow
+  Auth: X-API-Key header
+  Request Body:
+    {
+      "projectId": string           (required)
+      "drawNumber": number          (required)
+      "milestoneDescription": string (required)
+      "lenderAddress": string       (required, XRPL account)
+      "gcAddress": string           (required, XRPL account)
+      "amountXrp": number           (required)
+      "finishAfterHours": number    (optional, default: 1)
+      "cancelAfterDays": number     (optional, default: 90)
+    }
+  Response: { success, data: { dridString, record, txHash } }
+  Example:
+    curl -X POST http://localhost:3000/v1/escrow \
+      -H "X-API-Key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "projectId": "PROJ-001",
+        "drawNumber": 1,
+        "milestoneDescription": "Foundation Complete",
+        "lenderAddress": "rN7n7otQDd6FczFgLdhmKAmaEJWqZJxWUu",
+        "gcAddress": "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1",
+        "amountXrp": 100
+      }'
+
+GET /v1/escrow/:drid
+  Description: Get escrow status and details
+  Auth: X-API-Key header
+  URL Parameter:
+    :drid = Draw Request ID in format projectId:drawN
+            Must be URL-encoded (colon as %3A)
+            Example: PROJ-001%3Adraw1
+  Response: { success, data: { dridString, status, record, onChainConfirmed, timeRemaining } }
+  Example:
+    curl -H "X-API-Key: your-api-key" \
+      http://localhost:3000/v1/escrow/PROJ-001%3Adraw1
+
+POST /v1/escrow/:drid/finish
+  Description: Release funds from escrow (after dual-condition verification)
+  Auth: X-API-Key header
+  URL Parameter:
+    :drid = DRID in URL-encoded format
+  Request Body:
+    {
+      "finisherAddress": string (required, XRPL account)
+    }
+  Response: { success, data: { dridString, txHash, amountReleasedDrops, protocolFeeDrops } }
+  Example:
+    curl -X POST http://localhost:3000/v1/escrow/PROJ-001%3Adraw1/finish \
+      -H "X-API-Key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{"finisherAddress": "rN7n7otQDd6FczFgLdhmKAmaEJWqZJxWUu"}'
+
+POST /v1/escrow/:drid/cancel
+  Description: Cancel escrow and return funds to lender
+  Auth: X-API-Key header
+  URL Parameter:
+    :drid = DRID in URL-encoded format
+  Request Body:
+    {
+      "reason": string (required, one of: EXPIRED, VERIFICATION_FAILED, LENDER_REQUESTED)
+    }
+  Response: { success, data: { dridString, txHash } }
+  Example:
+    curl -X POST http://localhost:3000/v1/escrow/PROJ-001%3Adraw1/cancel \
+      -H "X-API-Key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{"reason": "VERIFICATION_FAILED"}'
+
+POST /v1/escrow/:drid/verify-credential
+  Description: Mark inspector credential as verified (Module 2)
+  Auth: X-API-Key header
+  URL Parameter:
+    :drid = DRID in URL-encoded format
+  Request Body:
+    {
+      "txHash": string (required, transaction hash of credential issuance)
+    }
+  Response: { success, data: { dridString, record, message } }
+  Example:
+    curl -X POST http://localhost:3000/v1/escrow/PROJ-001%3Adraw1/verify-credential \
+      -H "X-API-Key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{"txHash": "1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"}'
+
+POST /v1/escrow/:drid/verify-nft
+  Description: Mark lien waiver NFT as verified (Module 3)
+  Auth: X-API-Key header
+  URL Parameter:
+    :drid = DRID in URL-encoded format
+  Request Body:
+    {
+      "txHash": string (required, transaction hash of NFT transfer)
+    }
+  Response: { success, data: { dridString, record, message } }
+  Example:
+    curl -X POST http://localhost:3000/v1/escrow/PROJ-001%3Adraw1/verify-nft \
+      -H "X-API-Key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{"txHash": "1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"}'
+
+================================================================================
+PROJECT ENDPOINTS (Auth Required)
+================================================================================
+
+GET /v1/project/:projectId/dashboard
+  Description: Get full project dashboard (Module 6)
+  Auth: X-API-Key header
+  URL Parameter:
+    :projectId = Project identifier (e.g., PROJ-001)
+  Response: { success, data: { projectId, totalDraws, totalAmount, draws[] } }
+  Example:
+    curl -H "X-API-Key: your-api-key" \
+      http://localhost:3000/v1/project/PROJ-001/dashboard
+
+GET /v1/project/:projectId/audit
+  Description: Get all audit trails for a project (Module 6)
+  Auth: X-API-Key header
+  URL Parameter:
+    :projectId = Project identifier
+  Response: { success, data: { projectId, totalDraws, trails[] } }
+  Example:
+    curl -H "X-API-Key: your-api-key" \
+      http://localhost:3000/v1/project/PROJ-001/audit
+
+GET /v1/project/:projectId/escrows
+  Description: List all escrows for a project
+  Auth: X-API-Key header
+  URL Parameter:
+    :projectId = Project identifier
+  Response: { success, data: { projectId, totalEscrows, escrows[] } }
+  Example:
+    curl -H "X-API-Key: your-api-key" \
+      http://localhost:3000/v1/project/PROJ-001/escrows
+
+================================================================================
+SETTLEMENT OPERATIONS (Auth Required, Module 5)
+================================================================================
+
+POST /v1/settlement/quote
+  Description: Get DEX quote for XRP to RLUSD conversion
+  Auth: X-API-Key header
+  Request Body:
+    {
+      "gcAddress": string      (required, XRPL account)
+      "xrpDrops": string       (required, amount in drops)
+      "slippage": number       (optional, default: 0.01 for 1%)
+    }
+  Response: { success, data: { quote, params } }
+  Example:
+    curl -X POST http://localhost:3000/v1/settlement/quote \
+      -H "X-API-Key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "gcAddress": "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1",
+        "xrpDrops": "100000000",
+        "slippage": 0.01
+      }'
+
+POST /v1/settlement/transfer
+  Description: Transfer RLUSD directly from lender to GC
+  Auth: X-API-Key header
+  Request Body:
+    {
+      "dridString": string         (required, e.g., PROJ-001:draw1)
+      "rlusdAmount": string        (required, amount in RLUSD)
+      "senderAddress": string      (required, XRPL account)
+      "receiverAddress": string    (required, XRPL account)
+    }
+  Response: { success, data: { dridString, txHash, rlusdAmount } }
+  Example:
+    curl -X POST http://localhost:3000/v1/settlement/transfer \
+      -H "X-API-Key: your-api-key" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "dridString": "PROJ-001:draw1",
+        "rlusdAmount": "100.50",
+        "senderAddress": "rN7n7otQDd6FczFgLdhmKAmaEJWqZJxWUu",
+        "receiverAddress": "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1"
+      }'
+
+================================================================================
+RESPONSE FORMAT
+================================================================================
+
+Success (HTTP 2xx):
+  {
+    "success": true,
+    "data": { /* endpoint-specific */ },
+    "timestamp": "2026-04-21T12:34:56.789Z"
+  }
+
+Error (HTTP 4xx/5xx):
+  {
+    "success": false,
+    "error": "Human-readable error message",
+    "code": "ERROR_CODE",
+    "details": { /* development only, not in production */ },
+    "timestamp": "2026-04-21T12:34:56.789Z"
+  }
+
+Error Codes:
+  INVALID_REQUEST          (400) — Missing or invalid request fields
+  UNAUTHORIZED             (401) — Missing or incorrect X-API-Key
+  NOT_FOUND                (404) — Resource not found
+  ESCROW_CREATE_FAILED     (400) — Failed to create escrow on-chain
+  ESCROW_FINISH_FAILED     (400) — Failed to finish escrow
+  ESCROW_CANCEL_FAILED     (400) — Failed to cancel escrow
+  CONFIG_ERROR             (500) — Missing configuration (wallet, API key)
+  SERVICE_UNAVAILABLE      (503) — XRPL connection lost
+  INTERNAL_ERROR           (500) — Unexpected error
+
+================================================================================
+ESCROW LIFECYCLE & STATUS
+================================================================================
+
+Escrow Status Flow:
+  1. FUNDED                — Escrow created, funds locked
+  2. PENDING_VERIFICATION  — Awaiting credential + NFT verification
+  3. DUAL_CONDITION_MET    — Both verified, ready to finish
+  4. RELEASED              — Funds disbursed to GC
+     (or CANCELLED if cancelled)
+     (or EXPIRED if deadline passed)
+
+Verification Conditions (both required for release):
+  • inspectorCredentialVerified: XLS-0070 credential on-chain
+  • lienWaiverNftVerified: XLS-20 NFT on-chain
+
+Time Conditions:
+  • finishAfter: Earliest time escrow can be released (default: 1 hour)
+  • cancelAfter: Latest time escrow can exist (default: 90 days)
+
+================================================================================
+COMMON WORKFLOW
+================================================================================
+
+1. Create Escrow
+   POST /v1/escrow
+   → Returns: dridString = "PROJ-001:draw1"
+
+2. Inspector verifies credential (Module 2)
+   [Off-chain credential issuance]
+
+3. Mark Credential Verified
+   POST /v1/escrow/PROJ-001%3Adraw1/verify-credential
+   → Escrow: inspectorCredentialVerified = true
+
+4. GC submits lien waiver NFT (Module 3)
+   [Off-chain NFT mint/transfer]
+
+5. Mark NFT Verified
+   POST /v1/escrow/PROJ-001%3Adraw1/verify-nft
+   → Escrow: lienWaiverNftVerified = true
+   → Escrow status: DUAL_CONDITION_MET
+
+6. Release Funds (after finishAfter time)
+   POST /v1/escrow/PROJ-001%3Adraw1/finish
+   → Escrow status: RELEASED
+   → Funds transferred to GC address
+
+7. Optional: Settle in RLUSD
+   POST /v1/settlement/quote        (preview rate)
+   POST /v1/settlement/transfer     (send RLUSD to GC)
+
+8. View Audit Trail (Module 6)
+   GET /v1/project/PROJ-001/audit   (all draws)
+   GET /v1/escrow/PROJ-001%3Adraw1  (single draw status)
+
+================================================================================
+ENVIRONMENT VARIABLES
+================================================================================
+
+Required:
+  XRPL_NETWORK=testnet|mainnet
+  XRPL_SERVER_URL=wss://s.altnet.rippletest.net:51233 (for testnet)
+  LENDER_WALLET_SEED=sEd7...
+  PROTOCOL_WALLET_SEED=sEd7...
+  CANCELLER_WALLET_SEED=sEd7...
+  RLUSD_ISSUER_ADDRESS=rLHzPsX6oXkzU9qL8RBoGV1N1b7rQJrFLr
+
+Optional:
+  API_PORT=3000 (default)
+  NODE_ENV=development|production (default: development)
+  BUILDCHAIN_API_KEY=your-api-key (optional in dev, required in prod)
+  REGISTRY_PATH=./registry.json
+
+================================================================================
+DRID FORMAT & URL ENCODING
+================================================================================
+
+DRID Format: projectId:drawN
+  Examples:
+    PROJ-001:draw1
+    PROJECT-ABC-123:draw42
+    build-id-test:draw5
+
+URL Encoding:
+  Colon (:) must be encoded as %3A
+  Examples:
+    /v1/escrow/PROJ-001%3Adraw1
+    /v1/escrow/PROJECT-ABC-123%3Adraw42
+
+Decoding:
+  Automatically handled by API
+  Input:  PROJ-001%3Adraw1
+  Output: PROJ-001:draw1
+
+================================================================================
+QUICK REFERENCE TABLE
+================================================================================
+
+Endpoint                                 | Method | Auth | Main Modules
+─────────────────────────────────────────┼────────┼──────┼──────────────
+/health                                  | GET    | No   | Health
+/v1/registry/summary                     | GET    | Yes  | Module 1
+/v1/escrow                               | POST   | Yes  | Module 1
+/v1/escrow/:drid                         | GET    | Yes  | Module 1
+/v1/escrow/:drid/finish                  | POST   | Yes  | Module 1
+/v1/escrow/:drid/cancel                  | POST   | Yes  | Module 1
+/v1/escrow/:drid/verify-credential       | POST   | Yes  | Modules 2,4
+/v1/escrow/:drid/verify-nft              | POST   | Yes  | Modules 3,4
+/v1/project/:projectId/dashboard         | GET    | Yes  | Module 6
+/v1/project/:projectId/audit             | GET    | Yes  | Module 6
+/v1/project/:projectId/escrows           | GET    | Yes  | Module 1,6
+/v1/settlement/quote                     | POST   | Yes  | Module 5
+/v1/settlement/transfer                  | POST   | Yes  | Module 5
+
+================================================================================
+SUPPORT & DOCUMENTATION
+================================================================================
+
+Quick Start:        api/README.md
+Integration Guide:  API_INTEGRATION.md
+5-Min Quick Start:  API_QUICKSTART.md
+OpenAPI Spec:       api/openapi.yaml
+This Reference:     API_ENDPOINTS.txt
+
+================================================================================

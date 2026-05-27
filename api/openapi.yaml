@@ -1,0 +1,625 @@
+openapi: 3.0.0
+
+info:
+  title: BuildChain Protocol REST API
+  version: 1.0.0
+  description: RESTful API wrapping BuildChain Protocol's 6-module TypeScript system
+  contact:
+    name: BuildChain Protocol, Inc.
+  license:
+    name: UNLICENSED
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.buildchain.io
+    description: Production
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /v1/registry/summary:
+    get:
+      summary: Get registry summary statistics
+      operationId: getRegistrySummary
+      tags:
+        - Health
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Registry summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/escrow:
+    post:
+      summary: Create a new escrow
+      operationId: createEscrow
+      tags:
+        - Escrow
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEscrowRequest'
+      responses:
+        '201':
+          description: Escrow created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /v1/escrow/{drid}:
+    get:
+      summary: Get escrow status
+      operationId: getEscrowStatus
+      tags:
+        - Escrow
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DRIDParam'
+      responses:
+        '200':
+          description: Escrow status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/escrow/{drid}/finish:
+    post:
+      summary: Release funds from escrow after verification
+      operationId: finishEscrow
+      tags:
+        - Escrow
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DRIDParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishEscrowRequest'
+      responses:
+        '200':
+          description: Escrow finished successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/escrow/{drid}/cancel:
+    post:
+      summary: Cancel an escrow
+      operationId: cancelEscrow
+      tags:
+        - Escrow
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DRIDParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelEscrowRequest'
+      responses:
+        '200':
+          description: Escrow cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/escrow/{drid}/verify-credential:
+    post:
+      summary: Mark inspector credential as verified
+      operationId: verifyCredential
+      tags:
+        - Escrow
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DRIDParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCredentialRequest'
+      responses:
+        '200':
+          description: Credential marked as verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/escrow/{drid}/verify-nft:
+    post:
+      summary: Mark lien waiver NFT as verified
+      operationId: verifyNft
+      tags:
+        - Escrow
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DRIDParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyNftRequest'
+      responses:
+        '200':
+          description: NFT marked as verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/project/{projectId}/dashboard:
+    get:
+      summary: Get full project dashboard
+      operationId: getProjectDashboard
+      tags:
+        - Project
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Project identifier
+      responses:
+        '200':
+          description: Project dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/project/{projectId}/audit:
+    get:
+      summary: Get all audit trails for a project
+      operationId: getProjectAudit
+      tags:
+        - Project
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Project identifier
+      responses:
+        '200':
+          description: Audit trails
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/project/{projectId}/escrows:
+    get:
+      summary: List all escrows for a project
+      operationId: listProjectEscrows
+      tags:
+        - Project
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Project identifier
+      responses:
+        '200':
+          description: List of escrows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/settlement/quote:
+    post:
+      summary: Get DEX quote for XRP to RLUSD swap
+      operationId: getDexQuote
+      tags:
+        - Settlement
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DexQuoteRequest'
+      responses:
+        '200':
+          description: DEX quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/settlement/transfer:
+    post:
+      summary: Transfer RLUSD directly
+      operationId: transferRlusd
+      tags:
+        - Settlement
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRlusdRequest'
+      responses:
+        '200':
+          description: Transfer completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+  parameters:
+    DRIDParam:
+      name: drid
+      in: path
+      required: true
+      schema:
+        type: string
+      description: |
+        Draw Request ID in format projectId:drawN
+        Must be URL-encoded (colons as %3A)
+        Example: PROJECT%3Adraw1
+
+  schemas:
+    ApiResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          description: Response data (varies by endpoint)
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-04-21T12:34:56.789Z'
+
+    ApiError:
+      type: object
+      required:
+        - success
+        - error
+        - code
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: 'Invalid request'
+        code:
+          type: string
+          example: 'INVALID_REQUEST'
+        details:
+          type: object
+          description: Additional error details (development only)
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-04-21T12:34:56.789Z'
+
+    HealthResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - status
+            - network
+            - connected
+            - timestamp
+          properties:
+            status:
+              type: string
+              enum: [ok, degraded]
+            network:
+              type: string
+              enum: [testnet, mainnet]
+            connected:
+              type: boolean
+            timestamp:
+              type: string
+              format: date-time
+
+    CreateEscrowRequest:
+      type: object
+      required:
+        - projectId
+        - drawNumber
+        - milestoneDescription
+        - lenderAddress
+        - gcAddress
+        - amountXrp
+      properties:
+        projectId:
+          type: string
+          example: 'PROJ-001'
+        drawNumber:
+          type: integer
+          example: 1
+        milestoneDescription:
+          type: string
+          example: 'Foundation Complete'
+        lenderAddress:
+          type: string
+          example: 'rN7n7otQDd6FczFgLdhmKAmaEJWqZJxWUu'
+        gcAddress:
+          type: string
+          example: 'rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1'
+        amountXrp:
+          type: number
+          example: 100
+        finishAfterHours:
+          type: number
+          example: 1
+        cancelAfterDays:
+          type: number
+          example: 90
+
+    FinishEscrowRequest:
+      type: object
+      required:
+        - finisherAddress
+      properties:
+        finisherAddress:
+          type: string
+          example: 'rN7n7otQDd6FczFgLdhmKAmaEJWqZJxWUu'
+
+    CancelEscrowRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          enum:
+            - EXPIRED
+            - VERIFICATION_FAILED
+            - LENDER_REQUESTED
+          example: VERIFICATION_FAILED
+
+    VerifyCredentialRequest:
+      type: object
+      required:
+        - txHash
+      properties:
+        txHash:
+          type: string
+          example: '1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF'
+
+    VerifyNftRequest:
+      type: object
+      required:
+        - txHash
+      properties:
+        txHash:
+          type: string
+          example: '1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF'
+
+    DexQuoteRequest:
+      type: object
+      required:
+        - gcAddress
+        - xrpDrops
+      properties:
+        gcAddress:
+          type: string
+          example: 'rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1'
+        xrpDrops:
+          type: string
+          example: '100000000'
+        slippage:
+          type: number
+          example: 0.01
+
+    TransferRlusdRequest:
+      type: object
+      required:
+        - dridString
+        - rlusdAmount
+        - senderAddress
+        - receiverAddress
+      properties:
+        dridString:
+          type: string
+          example: 'PROJ-001:draw1'
+        rlusdAmount:
+          type: string
+          example: '100.50'
+        senderAddress:
+          type: string
+          example: 'rN7n7otQDd6FczFgLdhmKAmaEJWqZJxWUu'
+        receiverAddress:
+          type: string
+          example: 'rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1'
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+    Unauthorized:
+      description: Unauthorized — missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+    ServiceUnavailable:
+      description: Service unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+tags:
+  - name: Health
+    description: Health checks and system status
+  - name: Escrow
+    description: Escrow lifecycle operations
+  - name: Project
+    description: Project-level dashboard and audit
+  - name: Settlement
+    description: Settlement and DEX operations

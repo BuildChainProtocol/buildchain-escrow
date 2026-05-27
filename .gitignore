@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment — NEVER commit wallet seeds or API keys
+.env
+
+# Registry data — local escrow state (commit only schema, not live data)
+data/
+*.json
+!package.json
+!tsconfig.json
+
+# Test coverage
+coverage/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# TypeScript cache
+*.tsbuildinfo

@@ -1,0 +1,53 @@
+name: BuildChain Protocol — CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck-and-test:
+    name: Typecheck & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test -- --coverage
+        env:
+          # Tests use mock registry — no live XRPL connection needed
+          XRPL_NETWORK: testnet
+          REGISTRY_PATH: ./data/test-registry.json
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+        continue-on-error: true   # lint warnings don't block merge
